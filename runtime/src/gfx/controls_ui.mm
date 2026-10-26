@@ -187,8 +187,8 @@ struct Geo {
     CGFloat colLx, colRx, drawL, drawR;
 };
 
-static const CGFloat kColW = 254, kRowH = 23, kMargin = 14, kHeaderH = 22;
-static const CGFloat kChipX[kSlotCount] = {50, 110, 170}, kChipW[kSlotCount] = {56, 56, 78};
+static const CGFloat kColW = 370, kRowH = 23, kMargin = 14, kHeaderH = 22;
+static const CGFloat kChipX[kSlotCount] = {166, 226, 286}, kChipW[kSlotCount] = {56, 56, 78};
 
 // live state shared by the window controller and the view
 struct UIState {
@@ -412,7 +412,7 @@ struct UIState {
         Group gr;
         gr.title = title;
         gr.acts = {a};
-        gr.rowLabels = {title};
+        gr.rowLabels = {ns(action_label(a))};
         gr.anchor = anchor;
         gr.right = right;
         g.groups.push_back(gr);
@@ -430,9 +430,9 @@ struct UIState {
     single(@"ZR", kZR, tabAnchor(kZR), true);
     single(@"L", kL, tabAnchor(kL), false);
     single(@"R", kR, tabAnchor(kR), true);
-    multi(@"Left stick (move)", {kLUp, kLDown, kLLeft, kLRight, kStickLClick}, {@"↑", @"↓", @"←", @"→", @"Click"}, PU(d.lstick), false);
-    multi(@"Right stick (camera)", {kRUp, kRDown, kRLeft, kRRight, kStickRClick}, {@"↑", @"↓", @"←", @"→", @"Click"}, PU(d.rstick), true);
-    multi(@"D-pad", {kDUp, kDDown, kDLeft, kDRight}, {@"↑", @"↓", @"←", @"→"}, PU(d.dpad), false);
+    multi(@"Left stick (Move)", {kLUp, kLDown, kLLeft, kLRight, kStickLClick}, {@"↑", @"↓", @"←", @"→", @"Click (Unused by Game)"}, PU(d.lstick), false);
+    multi(@"Right stick (Camera)", {kRUp, kRDown, kRLeft, kRRight, kStickRClick}, {@"↑", @"↓", @"←", @"→", @"Click (First-Person View)"}, PU(d.rstick), true);
+    multi(@"D-pad", {kDUp, kDDown, kDLeft, kDRight}, {ns(action_label(kDUp)), ns(action_label(kDDown)), ns(action_label(kDLeft)), ns(action_label(kDRight))}, PU(d.dpad), false);
     for (auto& p : g.parts)
         if (p.kind == kPartRound) {
             bool right = p.action == kPlus || p.action == kA || p.action == kB || p.action == kX || p.action == kY ||
@@ -1013,7 +1013,7 @@ static NSTextField* label(NSString* s) {
 }
 
 - (void)build {
-    WWControlsWindow* w = [[WWControlsWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1060, 638)
+    WWControlsWindow* w = [[WWControlsWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1292, 638)
                                                               styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
                                                                         NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable
                                                                 backing:NSBackingStoreBuffered
@@ -1022,7 +1022,7 @@ static NSTextField* label(NSString* s) {
     w.controls = self;
     w.delegate = self;
     w.releasedWhenClosed = NO;
-    w.contentMinSize = NSMakeSize(960, 632);
+    w.contentMinSize = NSMakeSize(1192, 632);
     // remembered window frame (NSUserDefaults); not in portable mode, which keeps nothing outside its folder
     if (!getenv("WWHD_NO_HOST_INPUT") && !host::portable()) w.frameAutosaveName = @"WWHDControls2";  // test runs: always the default size
     self.window = w;

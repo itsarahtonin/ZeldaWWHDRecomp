@@ -7,6 +7,11 @@ what is on `devel` and not released yet (also in the
 
 ## Next update
 
+- **The HUD's button cluster follows custom face bindings.** With Xbox or PlayStation button prompts, each
+  button in the top-right cluster, with its item and action word, is now drawn where its pad button sits for
+  any set of face bindings, not only by label. For example, with the sword on an Xbox pad's X and items on Y
+  and B, the sword shows on the left and the items on top and on the right. By position and by label look as
+  before.
 - **Full-size torchlight** (Graphics, on by default). Torches and other point lights light the scene through a
   half-size light buffer that every lit object reads back with a depth-aware upsample. Pixels on an object's edge
   often took the light meant for the wall behind it, which the flame's flicker turned into a blocky, flickering
