@@ -1409,6 +1409,9 @@ static void bind_stage(id<MTLRenderCommandEncoder> enc, const uint32_t* regs, Sh
         MTLTextureType type = texture_type_for_dim(dec->textureUnitDim[unit]);
         const uint32_t* tw = &regs[texBase + unit * 7];
         Surface* s = sampled_texture(tw, dec->textureUsesDepthCompare[unit]);
+        // the point-light passes read the buffer's depth copy on unit 0: it gets the buffer's size from
+        // the next time it is drawn (target_scale)
+        if (!vertex && sh->kind == gfx::ProgramKind::PointLight && unit == 0 && s && s->gpuWritten) s->lightGrid = true;
         if (!vertex && s && g_hires_src && s->addr == g_hires_src && g_hires_frame == R.frame && ao_hires_enabled() &&
             sh->kind == gfx::ProgramKind::OcclusionPixel)
             s = &g_hires_color;
@@ -2047,8 +2050,9 @@ void draw(const uint32_t* regs, uint32_t prim, uint32_t count, uint32_t indexTyp
     Surface* colors[8] = {};
     uint32_t colorSlices[8] = {}, depthSlice = 0;
     const bool guestSized = ps->kind == gfx::ProgramKind::BloomChain;
+    const bool lightGrid = ps->kind == gfx::ProgramKind::PointLight;
     for (int i = 0; i < 8; i++)
-        if (mask & (1 << i)) colors[i] = color_target(regs, i, &colorSlices[i], guestSized);
+        if (mask & (1 << i)) colors[i] = color_target(regs, i, &colorSlices[i], guestSized, lightGrid);
     Surface* depth = LatteMRT::GetActiveDepthBufferMask(lcr) ? depth_target(regs, &depthSlice) : nullptr;
     if (depth && depth->width == 1280 && depth->height == 720) R.mainDepthAddr = depth->addr;
     // must this draw run even if its compile takes longer than the budget? (see wait_compiled)

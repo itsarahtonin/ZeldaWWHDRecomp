@@ -3,6 +3,7 @@
 #include "deferred_dispatch.h"
 #include "../../exception_report.h"
 #include "gfx/render_mips.h"
+#include "gfx/renderer.h"
 #include "gfx/texture_levels.h"
 #include "bc_decode.h"
 #include "mods/cemu_pack.h"
@@ -225,6 +226,9 @@ static float target_scale(const Surface* s) {
     uint32_t width,height;
     if(!s->fmt.compressed&&s->mips==1&&mods::cemu::texture_extent(s->width,s->height,s->format,s->slices,s->tileMode,width,height))return 1.0f;
     if (s->fmt.compressed || s->mips > 1) return 1.0f;
+    // the half-size point-light buffer and its depth copy with Full-size torchlight: as many pixels as the
+    // screen, so every pixel gets its own light instead of a neighbour's along silhouettes (gfx/area_sample.h)
+    const float light = s->lightGrid && render::full_light() ? 2.0f : 1.0f;
     static const float shadow = getenv("WWHD_SHADOW_SCALE") ? parse_scale(getenv("WWHD_SHADOW_SCALE")) : 0.0f;
     static const bool shadow_logged = [] {  // issue #67: show that the switch was picked up
         if (shadow) LOG("[gfx] WWHD_SHADOW_SCALE=%g: shadow maps at %gx the console's 1024x1024", shadow, shadow);
@@ -234,8 +238,8 @@ static float target_scale(const Surface* s) {
     if (shadow && s->isDepth && s->slices > 1) return shadow;
     // dynamic resolution: single-layer targets (the screen's buffers and the GamePad's); the shadow
     // cascades (arrays) keep the internal resolution
-    if (s->slices > 1) return res_scale();
-    return res_scale() * g_dyn_frame;
+    if (s->slices > 1) return res_scale() * light;
+    return res_scale() * g_dyn_frame * light;
 }
 // the dynamic resolution factor in target_scale's result (1 where it does not apply)
 static float target_dyn(const Surface* s) {
@@ -252,7 +256,7 @@ float nominal_height(const Surface* s) { return s ? float(s->extent.height) / s-
 // CB_COLORn_BASE holds the full guest address; CB_COLORn_TILE/FRAG hold width/height (our convention).
 constexpr uint32_t kDim2D = 1, kDim3D = 2, kDim2DArray = 5;
 
-Surface* color_target(const uint32_t* regs, int i, uint32_t* slice, bool guestSized) {
+Surface* color_target(const uint32_t* regs, int i, uint32_t* slice, bool guestSized, bool lightGrid) {
     uint32_t base = regs[mmCB_COLOR0_BASE + i];
     if (!base) return nullptr;
     uint32_t size = regs[mmCB_COLOR0_SIZE + i], info = regs[mmCB_COLOR0_INFO + i];
@@ -283,6 +287,7 @@ Surface* color_target(const uint32_t* regs, int i, uint32_t* slice, bool guestSi
     }
     d.dim = volume ? kDim3D : slices > 1 ? kDim2DArray : kDim2D;
     d.guestSized = guestSized;
+    d.lightGrid = lightGrid;
     return find_or_create_surface(d, true);
 }
 
@@ -1347,7 +1352,7 @@ static Surface* rescale(Surface* s) {
     Surface replacement;
     replacement.width=s->width;replacement.height=s->height;replacement.slices=s->slices;replacement.mips=s->mips;
     replacement.dim=s->dim;replacement.format=s->format;replacement.isDepth=s->isDepth;replacement.fmt=s->fmt;
-    replacement.guestSized=s->guestSized;
+    replacement.guestSized=s->guestSized;replacement.lightGrid=s->lightGrid;
     using clock=std::chrono::steady_clock;
     const auto t0=clock::now();
     const bool reused=keep&&take_spare(s,replacement,wanted,ax,ay);
@@ -1432,7 +1437,7 @@ Surface* find_or_create_surface(const SurfaceDesc& d,bool forRendering) {
         bool sameVolume=(s->imageType==VK_IMAGE_TYPE_3D)==(dimType(d.dim)==VK_IMAGE_TYPE_3D);
         if(s->width==d.width&&s->height==d.height&&s->format==d.format&&s->slices==d.slices&&sameVolume&&
            (forRendering||s->mips>=d.mips||s->gpuWritten)) {
-            if(forRendering) { s->guestSized|=d.guestSized; return adopt_newer_alias(rescale(s)); }
+            if(forRendering) { s->guestSized|=d.guestSized; s->lightGrid|=d.lightGrid; return adopt_newer_alias(rescale(s)); }
             if(!exact||s->writeSeq>exact->writeSeq)exact=s;
         } else if(!forRendering&&s->gpuWritten&&(s->format&0x3f)==(d.format&0x3f))consider(s);
     }
@@ -1444,6 +1449,7 @@ Surface* find_or_create_surface(const SurfaceDesc& d,bool forRendering) {
     s->format=d.format;s->dim=d.dim;s->tileMode=d.tileMode;s->swizzle=d.swizzle;s->isDepth=d.isDepth;
     s->fmt=d.isDepth&&!forRendering?comparison_format_info(d.format):format_info(d.format,d.isDepth);
     s->guestSized=forRendering&&d.guestSized;
+    s->lightGrid=forRendering&&d.lightGrid;
     create_surface_image(s.get(),forRendering);
     auto* raw=s.get();cache.emplace(d.addr,std::move(s));++g_surface_epoch;++g_surface_set_gen;
     // format views of one guest surface (adopt_newer_alias): flag them once, so lookups stay cheap
