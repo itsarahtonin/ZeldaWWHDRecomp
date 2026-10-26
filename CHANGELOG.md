@@ -20,6 +20,45 @@ what is on `devel` and not released yet (also in the
   resolution too: the pass that reads the picture skipped pixels, and the blur's lumps, which the console's final
   upscale blends away, got pixels of their own. The small copies now keep the console's size and read the picture
   as the Wii U does, so the glow looks as it does at 1x. 1x is unchanged.
+- **macOS: move and resize the GamePad picture with the mouse** (#305, thanks @shaneoreilly). In the TV window, drag the
+  picture-in-picture GamePad with the right mouse button (or with Option held) to move it, drag from its bottom-right
+  corner or use the scroll wheel over it to resize it (5–100%). The placement becomes Custom and is saved. A plain left
+  click on it is still a GamePad touch; menus and the editor keep their own mouse handling.
+- **Torchlight on objects is sharp at higher internal resolutions** (#313, thanks @itsarahtonin). Torches and other
+  point lights are lit through a half-size light buffer that lit objects read back with a depth-aware upsample. At 2x
+  and 3x that upsample still worked on the console's grid, so the light along the edges of lit objects came out in
+  blocks the size of console pixels. It now uses the larger buffer's own grid. 1x is unchanged.
+- **Linux on Mali (panvk): no more flickering shapes in the sky** (#310, thanks @mkopec). Parts of the clouds and haze on
+  the title screen and at sea flickered away in hard-edged chunks as the camera moved, because Mali drops pixels just
+  past the far plane. On the panvk driver the game now clamps depth instead (`WWHD_VK_DEPTH_CLAMP_ALL=0` turns this off).
+- **Linux: the installed game is about 10× smaller** (#314, thanks @missionfloyd). Setup now builds the game code without
+  debug information and strips debug data when linking, so the Linux game shrinks from over 500 MB to well under
+  100 MB, and setup compiles faster. Developers can keep debug information with `--debug-info` or
+  `WWHD_SETUP_DEBUG_INFO=1`.
+- **World editor: easier Claude / MCP setup** (#296, thanks @KelpyCode). `--editor --mcp` turns Claude / MCP access on at
+  start (`--editor` alone keeps it off). The access token is now kept across restarts (Settings → Editor → Claude / MCP
+  shows it, with Copy and New token), the Allow window has **Allow for this session**, and **Copy config for Claude
+  Desktop** gives a ready entry for the Claude desktop app (through the `mcp-remote` bridge, needs Node.js 18+). See the
+  editor docs.
+- **World editor: exact joins and marked faces** (#281, thanks @KelpyCode). New ground whose join vertices sit exactly on
+  an island's own vertices now counts as joined, so no small offset is needed any more (geometry that only touches, within
+  0.25 units, is not overlapping). When a model is refused, the faces that cause the conflict are tinted pink in the editor,
+  and `placement_conflicts` over MCP lists them. A part that only rests on the island's ground no longer counts as a
+  conflict.
+- **Metal: the shader cache keeps track of versions.** Its file now records the cache format, the macOS version and the
+  GPU; entries from another version are dropped and repeated rows are pruned when it is rewritten
+  (`WWHD_SHADER_CACHE_VERSIONING=0` turns this off).
+- **Vulkan: new opt-in switches**, all off by default (ideas from aurora's GX layer, MIT):
+  - `WWHD_VK_TEXTURE_STAGING=ring` (and `WWHD_MTL_TEXTURE_STAGING=pool` on Metal) stage texture uploads through the
+    frame's upload memory; on the test phone this shortens the worst frames at area loads a little.
+  - `WWHD_VK_METAL_RECIPES=1` lets the setup's Vulkan preparation also build pipelines from the head start's Metal
+    recipes: fewer pipelines are compiled during play and first-visit hitches are shorter, but on phones the larger
+    preparation can still be compiling while you play, so it stays opt-in for now.
+  - `WWHD_VK_TEXTURE_BUDGET=1` keeps texture memory within a budget, releasing least-recently-used textures and
+    reloading them when needed (for low-memory devices).
+  - `WWHD_ARTISTIC_MIPS=1` gives textures with hand-drawn mip levels a resolution-aware level-of-detail bias.
+- **Performance report:** new lines for the texture cache and the GPU timeline (GPU busy time per frame and the gaps
+  between command buffers; on Vulkan with `WWHD_VK_GPU_TIMESTAMPS=1`).
 - **World editor: island extensions can join an island's ground** (#281, thanks @KelpyCode). New ground that meets an
   island's ground at the same height (up to the 30-unit step Link and villagers walk over) counts as joined instead of
   overlapping, and an extension's sides may go into the cliff under its top; walls, raised parts and roofs still count.
