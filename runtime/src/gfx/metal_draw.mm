@@ -1344,8 +1344,10 @@ static Surface g_hires_color, g_hires_depth;
 
 static Surface* hires_surface(Surface& dst, const Surface* like) {
     uint32_t w = like->width * 3 / 2, h = like->height * 3 / 2;
-    // texture: 1.5x the game's buffer as allocated (which may already be scaled for the internal resolution)
-    uint32_t pw = (uint32_t)like->tex.width * 3 / 2, ph = (uint32_t)like->tex.height * 3 / 2;
+    // texture: 1.5x the game's buffer as allocated (which may already be scaled for the internal resolution;
+    // Full-size torchlight doubles the depth copy, target_scale, and the private copy keeps the AO pass's size)
+    const uint32_t light = like->lightGrid && render::full_light() ? 2 : 1;
+    uint32_t pw = (uint32_t)like->tex.width * 3 / (2 * light), ph = (uint32_t)like->tex.height * 3 / (2 * light);
     if (!dst.tex || dst.width != w || dst.height != h || dst.tex.width != pw || dst.tex.height != ph ||
         dst.fmt.pixel != like->fmt.pixel) {
         MTLTextureDescriptor* d = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:like->fmt.pixel width:pw height:ph
