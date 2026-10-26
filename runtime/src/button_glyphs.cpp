@@ -500,9 +500,8 @@ extern "C" void hook_028F7C7C(Cpu* c) {
         const uint32_t quad = list + 0xA4 + i * 0x30;
         const int face = button_glyphs::marked_face(ld8(quad + 0x2F));
         const int shoulder = button_glyphs::marked_shoulder(ld8(quad + 0x2F));
-        // Action words belong to the same physical button as their neighbouring icon.
-        // Keep By label's authored words byte-identical; new position/custom styles tint ink.
-        if (hud_action >= 0 && !look.positions && look.face != FaceStyle::kOriginal && look.colours) {
+        // Action words follow the mapped prompt palette, independently of icon colours.
+        if (hud_action >= 0 && look.face != FaceStyle::kOriginal) {
             const int button = look.buttons[hud_action];
             const uint32_t rgb = look.face == FaceStyle::kPlayStation ? button_glyphs::kShapeColours[button]
                                                                     : button_glyphs::colour(button);

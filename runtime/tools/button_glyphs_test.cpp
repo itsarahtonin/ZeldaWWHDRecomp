@@ -69,6 +69,7 @@ std::array<int, 4> expected_spots = {0, 1, 2, 3};  // where each face's HUD grou
 std::array<float, 4> drawn_quad{};  // the first quad's size and position as vertex generation saw it
 uint32_t drawn_sheet = 0;
 uint8_t drawn_flags = 0;  // the first quad's +0x2F as vertex generation saw it (bit 0: coverage glyph)
+uint32_t drawn_ink = 0;
 // Mirror the production style from the live mapping (input_map::prompt_style, tested on its own
 // in input_map_test); the hooks must draw exactly that.
 void expect_current() {
@@ -957,6 +958,7 @@ extern "C" void f_0286E9F0_orig(Cpu* c) {
 // Inspect the colours the actual draw hook supplies to vertex generation.
 extern "C" void f_028F7C7C_orig(Cpu* c) {
     text_draws++;
+    drawn_ink = ld32(c->r[4] + 0xA4 + 0x10);
     for (uint32_t i = 0; i < 4; i++) drawn_quad[i] = (float)ldf32(c->r[4] + 0xA4 + 4*i);
     drawn_sheet = ld32(c->r[4] + 0xA4 + 0x28);
     drawn_flags = ld8(c->r[4] + 0xA4 + 0x2F);
@@ -969,7 +971,7 @@ extern "C" void f_028F7C7C_orig(Cpu* c) {
             uint32_t want = expect_tint && face >= 0 && !hud_letter ? button_glyphs::tint(authored[j], expected_buttons[face]) : authored[j];
             if (expected_action >= 0) {
                 const auto look = input_map::prompt_style(input_map::current(), input_map::pad_family());
-                if (look.colours && !look.positions && look.face != input_map::FaceStyle::kOriginal) {
+                if (look.face != input_map::FaceStyle::kOriginal) {
                     const int button = expected_buttons[expected_action];
                     const uint32_t rgb = look.face == input_map::FaceStyle::kXbox ? button_glyphs::colour(button)
                                                                                  : button_glyphs::kShapeColours[button];
@@ -1259,32 +1261,44 @@ int main() {
             }
         }
     } while (std::next_permutation(permutation.begin(), permutation.end()));
-    // Plain HUD letters and neighbouring action words use the same mapped identity.
-    for (auto appearance : {input_map::Mapping::Prompts::kXbox, input_map::Mapping::Prompts::kPlayStation,
-                            input_map::Mapping::Prompts::kOriginal})
-        for (int face = 0; face < 4; ++face) {
-            auto mapping = input_map::Mapping::defaults(); mapping.prompts = appearance;
-            input_map::set_current(mapping, false); expect_current();
-            constexpr const char* pictures[] = {"P_A_00", "P_B_00", "P_X_00", "P_Y_00"};
-            constexpr const char* letters[] = {"T_A_00", "T_B_00", "T_X_00", "T_Y_00"};
-            constexpr const char* words[] = {"T_CommandA_00", "T_CommandB_00", "T_CommandX_00", "T_CommandY_00"};
-            pane(picture, pictures[face], 0, 0); child(picture, text_box);
-            st32(text_box + 0xA4, base + 0xB000); st16(text_box + 0xCE, 1);
-            st16(base + 0xB000, "ABXY"[face]);
-            for (bool word : {false, true}) {
-                std::strcpy((char*)mem::ptr(text_box + 0x80), word ? words[face] : letters[face]);
-                expected_action = word ? face : -1; hud_letter = !word;
-                expected_plain = !word && appearance == input_map::Mapping::Prompts::kXbox
-                    ? "ABXY"[expected_buttons[face]] : -1;
-                st16(list + 4, 0); st8(list + 6, 0);
-                Cpu c{}; c.r[3] = text_box;
-                button_glyphs::draw_text_box(&c, [](Cpu*) {
-                    print(expected_action >= 0 ? 'R' : ld16(base + 0xB000)); draw();
-                });
-                assert(ld32(first_quad + 0x10) == authored[0] && ld32(first_quad + 0x14) == authored[1]);
-                expected_action = expected_plain = -1; hud_letter = false;
+    // Action words follow every face permutation even when icon colours are disabled.
+    do {
+        for (auto appearance : {input_map::Mapping::Prompts::kXbox, input_map::Mapping::Prompts::kPlayStation,
+                                input_map::Mapping::Prompts::kOriginal})
+            for (bool colours : {true, false})
+            for (int face = 0; face < 4; ++face) {
+                auto mapping = input_map::Mapping::defaults(); mapping.prompts = appearance;
+                mapping.prompt_colours = colours;
+                for (int i = 0; i < 4; ++i) mapping.pad[input_map::kA+i] = input_map::kPadA + permutation[i];
+                input_map::set_current(mapping, false); expect_current();
+                constexpr const char* pictures[] = {"P_A_00", "P_B_00", "P_X_00", "P_Y_00"};
+                constexpr const char* letters[] = {"T_A_00", "T_B_00", "T_X_00", "T_Y_00"};
+                constexpr const char* words[] = {"T_CommandA_00", "T_CommandB_00", "T_CommandX_00", "T_CommandY_00"};
+                pane(picture, pictures[face], 0, 0); child(picture, text_box);
+                st32(text_box + 0xA4, base + 0xB000); st16(text_box + 0xCE, 1);
+                st16(base + 0xB000, "ABXY"[face]);
+                for (bool word : {false, true}) {
+                    std::strcpy((char*)mem::ptr(text_box + 0x80), word ? words[face] : letters[face]);
+                    expected_action = word ? face : -1; hud_letter = !word;
+                    expected_plain = !word && appearance == input_map::Mapping::Prompts::kXbox
+                        ? "ABXY"[expected_buttons[face]] : -1;
+                    st16(list + 4, 0); st8(list + 6, 0);
+                    Cpu c{}; c.r[3] = text_box;
+                    button_glyphs::draw_text_box(&c, [](Cpu*) {
+                        print(expected_action >= 0 ? 'R' : ld16(base + 0xB000)); draw();
+                    });
+                    if (word) {
+                        constexpr uint32_t xbox[] = {0x58BE36FF, 0xE34B49FF, 0x3B91E5FF, 0xEBC52EFF};
+                        constexpr uint32_t ps[] = {0x3C7DD9FF, 0xD9413CFF, 0xD05FB0FF, 0x2AA67DFF};
+                        const uint32_t want = appearance == input_map::Mapping::Prompts::kXbox ? xbox[permutation[face]]
+                            : appearance == input_map::Mapping::Prompts::kPlayStation ? ps[permutation[face]] : authored[0];
+                        assert(drawn_ink == want);
+                    }
+                    assert(ld32(first_quad + 0x10) == authored[0] && ld32(first_quad + 0x14) == authored[1]);
+                    expected_action = expected_plain = -1; hud_letter = false;
+                }
             }
-        }
+    } while (std::next_permutation(permutation.begin(), permutation.end()));
 
 
 #ifdef _WIN32
