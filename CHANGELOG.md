@@ -7,6 +7,11 @@ what is on `devel` and not released yet (also in the
 
 ## Next update
 
+- **Torchlight on objects is sharp at higher internal resolutions.** Torches and other point lights light the
+  scene through a half-size light buffer that every lit object reads back with a depth-aware upsample. At 2x and
+  3x that upsample still worked on the console's grid, so the light along the edges of lit objects (a distant
+  torch against the wall it lights) came out in blocks the size of console pixels. It now uses the larger buffer's
+  own grid. 1x is unchanged.
 - **Bloom is smooth again at higher internal resolutions** (#307). At 2x and 3x the glow around lit windows,
   doors, torches and Bokoblin eyes broke up into blocks and streaks, and small bright things such as rupees glowed
   only at some angles. The game makes its bloom from small copies of the picture, which were made at the higher
