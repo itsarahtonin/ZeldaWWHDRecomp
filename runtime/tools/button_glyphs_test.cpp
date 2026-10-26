@@ -234,6 +234,44 @@ void positions_test() {
             for (uint32_t j = 0; j < 8; j++) assert(ld32(nodes[i] + 0x1C + 4*j) == authored_positions[i][j]);
     }
 
+    // Every OK/Back pair, in either order, stays in the menu's original two-row area.
+    const uint32_t scene = base + 0x6000, state = base + 0x6300;
+    st32(0x101F8344, scene); st32(scene + 0x18, state);
+    const Point right = original[0], bottom = original[1], top = original[2], left = original[3];
+    const float right_shift = right.x - bottom.x;
+    struct Pair { int a, b; Point first, second; };
+    const Pair pairs[] = {
+        {0, 1, bottom, right},
+        {0, 2, {right.x, bottom.y}, {left.x + right_shift, left.y}},
+        {0, 3, {right.x, bottom.y}, {top.x + right_shift, right.y}},
+        {1, 2, {right.x, bottom.y}, {left.x, bottom.y}},
+        {1, 3, {right.x, bottom.y}, {top.x, right.y}},
+        {2, 3, {left.x + right_shift, bottom.y}, {top.x + right_shift, right.y}},
+    };
+    for (const auto& pair : pairs) for (bool reverse : {false, true}) {
+        auto mapping = input_map::Mapping::defaults();
+        mapping.prompts = input_map::Mapping::Prompts::kXbox;
+        mapping.pad[input_map::kA] = input_map::kPadA + (reverse ? pair.b : pair.a);
+        mapping.pad[input_map::kB] = input_map::kPadA + (reverse ? pair.a : pair.b);
+        int item = input_map::kX;
+        for (int i = 0; i < 4; i++) if (i != pair.a && i != pair.b) mapping.pad[item++] = input_map::kPadA + i;
+        input_map::set_current(mapping, false); expect_current();
+        for (uint32_t descriptor : {0x1049EC84u, 0x1049ECB0u, 0x1049ECDCu}) {
+            st32(state + 8, descriptor);
+            calculate(false);
+            same_point(position(face_panes[0]), reverse ? pair.second : pair.first);
+            same_point(position(face_panes[1]), reverse ? pair.first : pair.second);
+            for (int i = 2; i < 4; i++) same_point(position(face_panes[i]), original[expected_spots[i]]);
+            for (uint32_t i = 0; i < nodes.size(); i++)
+                for (uint32_t j = 0; j < 8; j++) assert(ld32(nodes[i] + 0x1C + 4*j) == authored_positions[i][j]);
+        }
+        // Leaving the menu restores the full diamond, even with cached matrices.
+        st32(state + 8, 0x1049EC00);
+        calculate(false);
+        for (int i = 0; i < 4; i++) same_point(position(face_panes[i]), original[expected_spots[i]]);
+    }
+    st32(0x101F8344, 0);
+
     // Different viewport origin/scale, and animated container scale/rotation: compare the
     // actual centres in common-parent space, not hard-coded screen offsets or cached globals.
     stf32(cluster + 0x1C, 700);
@@ -971,7 +1009,9 @@ extern "C" void f_028F7C7C_orig(Cpu* c) {
             uint32_t want = expect_tint && face >= 0 && !hud_letter ? button_glyphs::tint(authored[j], expected_buttons[face]) : authored[j];
             if (expected_action >= 0) {
                 const auto look = input_map::prompt_style(input_map::current(), input_map::pad_family());
-                if (look.face != input_map::FaceStyle::kOriginal) {
+                if (!look.text_colours) {
+                    want = authored[j] | 0xFFFFFF00u;
+                } else if (look.face != input_map::FaceStyle::kOriginal) {
                     const int button = expected_buttons[expected_action];
                     const uint32_t rgb = look.face == input_map::FaceStyle::kXbox ? button_glyphs::colour(button)
                                                                                  : button_glyphs::kShapeColours[button];
@@ -1265,10 +1305,11 @@ int main() {
     do {
         for (auto appearance : {input_map::Mapping::Prompts::kXbox, input_map::Mapping::Prompts::kPlayStation,
                                 input_map::Mapping::Prompts::kOriginal})
-            for (bool colours : {true, false})
+            for (bool colours : {true, false}) for (bool text_colours : {true, false})
             for (int face = 0; face < 4; ++face) {
                 auto mapping = input_map::Mapping::defaults(); mapping.prompts = appearance;
                 mapping.prompt_colours = colours;
+                mapping.prompt_text_colours = text_colours;
                 for (int i = 0; i < 4; ++i) mapping.pad[input_map::kA+i] = input_map::kPadA + permutation[i];
                 input_map::set_current(mapping, false); expect_current();
                 constexpr const char* pictures[] = {"P_A_00", "P_B_00", "P_X_00", "P_Y_00"};
@@ -1290,9 +1331,20 @@ int main() {
                     if (word) {
                         constexpr uint32_t xbox[] = {0x58BE36FF, 0xE34B49FF, 0x3B91E5FF, 0xEBC52EFF};
                         constexpr uint32_t ps[] = {0x3C7DD9FF, 0xD9413CFF, 0xD05FB0FF, 0x2AA67DFF};
-                        const uint32_t want = appearance == input_map::Mapping::Prompts::kXbox ? xbox[permutation[face]]
+                        const uint32_t want = !text_colours ? 0xFFFFFFFFu
+                            : appearance == input_map::Mapping::Prompts::kXbox ? xbox[permutation[face]]
                             : appearance == input_map::Mapping::Prompts::kPlayStation ? ps[permutation[face]] : authored[0];
                         assert(drawn_ink == want);
+                        // A text-only setting change must rebuild cached vertices immediately.
+                        mapping.prompt_text_colours = !text_colours;
+                        input_map::set_current(mapping, false); expect_current();
+                        const unsigned before = text_draws;
+                        button_glyphs::draw_text_box(&c, [](Cpu*) { draw(); });
+                        assert(text_draws == before + 1);
+                        button_glyphs::draw_text_box(&c, [](Cpu*) { draw(); });
+                        assert(text_draws == before + 1);
+                        mapping.prompt_text_colours = text_colours;
+                        input_map::set_current(mapping, false); expect_current();
                     }
                     assert(ld32(first_quad + 0x10) == authored[0] && ld32(first_quad + 0x14) == authored[1]);
                     expected_action = expected_plain = -1; hud_letter = false;
