@@ -21,6 +21,8 @@ Face-action words use the mapped button's Xbox or PlayStation prompt colour acro
 
 The item menu's OK/Back pair keeps the mapped buttons' relative directions while fitting the original menu area: unused vertical rows are removed, and a pair without the rightmost button shifts one position right. The top/bottom pair retains one-third of its empty middle row to give the labels more clearance. The pair stays compact throughout its exit animation; the separate gameplay guide retains the full diamond spacing.
 
+A guide displaying exactly one face button uses the authored Confirm position for that button and its caption, regardless of the binding or icon style. This also covers lone Back and item prompts. The retained button set keeps that placement stable through transitions; guides with additional buttons retain their normal layout.
+
 Automatic prompts follow Xbox and PlayStation pads. Nintendo and unknown pads keep the original
 look with By position or custom bindings. By label retains its existing Xbox fallback for those
 families. Switching takes effect immediately, including cached message text.
@@ -57,7 +59,7 @@ Four function hooks (`tools/recomp/hooks_glyphs.txt`), plus wrappers around the 
   PlayStation shapes to the composed atlas for the vertex build, then restores everything it changed.
 - `0x02874D54` (`Picture::DrawSelf`) tints the HUD button backgrounds (`P_A_00`, `P_B_00`, `P_X_00`,
   `P_Y_00`, `P_ASpecial_00`) and restores their authored vertex colours afterwards.
-- `0x026F8CD0` (`hdParts_c::calcLayout`) scopes compact placement to `hdCommandButtonGuide_c` with a retained A/B-only face set (`mCachedButtons`). That set stays unchanged during its exit animation, even after the scene has returned to gameplay. The gameplay guide and other layouts keep their own placement; no previous-frame state or timeout is needed.
+- `0x026F8CD0` (`hdParts_c::calcLayout`) scopes compact pair placement to `hdCommandButtonGuide_c` with a retained A/B-only face set (`mCachedButtons`), and single-face placement to either command-guide class with exactly one displayed button. That set stays unchanged during its exit animation, even after the scene has returned to gameplay. Other layouts keep their own placement; no previous-frame state or timeout is needed.
 - `0x028785C8` (`lyt::TextBox::DrawSelf`, the existing RTL wrapper) also recognises
   `CommandA_00`'s floating action hint: `T_A_00` and `P_A_00` are **siblings** under
   `N_Center_01`, unlike the cluster's parent/child pair. The same check supports B/X/Y
@@ -78,7 +80,7 @@ Four function hooks (`tools/recomp/hooks_glyphs.txt`), plus wrappers around the 
 - The pane-matrix hook moves the complete CommandGuide cluster (`N_All_00`) for the Xbox positions;
   only the computed global matrices keep the new layout, the authored locals are restored.
 
-**Untouched until used:** none of the hooks write to game memory until a different look has been
+**Glyph styling untouched until used:** text and picture hooks do not write to game memory until a different look has been
 selected once in the session; the first activation rebuilds each cached text box once so its glyphs
 get marked. A loaded save state, or a change from one look to another (colours, shapes, shoulder
 names), clears that rebuild list. The look is resolved once per controls change or new controller

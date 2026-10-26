@@ -31,9 +31,9 @@ using input_map::FaceStyle;
 using input_map::PromptStyle;
 using input_map::ShoulderStyle;
 
-// Session gate: until a restyled look (by label, or a fixed shoulder name choice) has been on
-// once, the hooks must not write game memory at all (no glyph markers, no composed texture).
-// Players who never use it then run exactly the stock path. The first activation latches this
+// Glyph gate: until a restyled look (by label, or a fixed shoulder name choice) has been on
+// once, text and picture hooks leave game memory untouched (no markers or composed texture).
+// Single-prompt placement is independent of this gate. The first activation latches this
 // flag; marking then works as in any restyled session, so later changes still reach text cached
 // in either mode.
 std::atomic<bool> labels_used{false};
@@ -283,17 +283,30 @@ Point button_centre(uint32_t group, uint32_t picture) {
     return p;
 }
 
-thread_local bool menu_pair_layout = false;
+struct GuideLayout {
+    bool known = false;
+    bool menu_pair = false;
+    int single_face = -1;
+};
+thread_local GuideLayout guide_layout;
 
 }  // namespace
 
 void button_glyphs::calculate_parts(Cpu* c, PpcFunc calculate) {
-    const bool previous = menu_pair_layout;
+    const auto previous = guide_layout;
     const uint32_t parts = c->r[3];
-    // ButtonGuide retains its displayed buttons through Out; scene state changes earlier.
-    menu_pair_layout = ld32(parts + 4) == GD(0x100EE5F8) && (ld8(parts + 0xDD) & 0x1F) == 3;
+    const uint32_t vtable = ld32(parts + 4);
+    guide_layout = {};
+    guide_layout.known = vtable == GD(0x100EE5F8) || vtable == GD(0x100EE378);
+    if (guide_layout.known) {
+        // Retained buttons describe the outgoing layout until its animation finishes.
+        const uint8_t buttons = ld8(parts + 0xDD);
+        guide_layout.menu_pair = vtable == GD(0x100EE5F8) && (buttons & 0x1F) == 3;
+        for (int i = 0; i < 4; ++i)
+            if (buttons == (1u << i)) guide_layout.single_face = i;
+    }
     calculate(c);
-    menu_pair_layout = previous;
+    guide_layout = previous;
 }
 
 extern "C" void hook_026F8CD0(Cpu* c) {
@@ -318,12 +331,12 @@ void button_glyphs::calculate_pane(Cpu* c, PpcFunc calculate) {
     // prompt or the item screen's linear row. Move the group root: labels, item art and effects
     // inherit the same transform. Force its tree's matrices in both modes so switching back or
     // restoring a state cannot leave the previous layout's cached global positions behind.
-    // Only once a restyled look has been used: until then the stock path stays untouched.
-    // Each group takes the drawn spot of the pad button bound to it (input_map::hud_spots).
-    if (marking()) c->r[5] = 1;
+    // Known guides also refresh when switching between a lone prompt and the full cluster.
+    if (marking() || guide_layout.known) c->r[5] = 1;
     const auto look = style();
-    const int spot = look.spots[face];
-    const bool menu_pair = face < 2 && look.face != FaceStyle::kOriginal && menu_pair_layout;
+    // A lone face prompt always uses the authored Confirm anchor, regardless of its binding.
+    const int spot = guide_layout.single_face == face ? 0 : look.spots[face];
+    const bool menu_pair = face < 2 && look.face != FaceStyle::kOriginal && guide_layout.menu_pair;
     if (spot == face && !menu_pair) return calculate(c);
     const Point from = button_centre(groups[face], pictures[face]);
     Point to = button_centre(groups[spot], pictures[spot]);

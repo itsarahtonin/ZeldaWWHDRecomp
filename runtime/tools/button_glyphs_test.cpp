@@ -292,6 +292,42 @@ void positions_test() {
         }
         st32(guide + 4, 0x100EE5F8); st8(guide + 0xDD, 3);
     }
+    // Every lone face uses the same anchor in both guides, for all bindings and icon styles.
+    for (auto prompts : {input_map::Mapping::Prompts::kOriginal, input_map::Mapping::Prompts::kXbox,
+                         input_map::Mapping::Prompts::kPlayStation}) {
+        std::array<int, 4> buttons{0, 1, 2, 3};
+        do {
+            auto mapping = input_map::Mapping::defaults();
+            mapping.prompts = prompts;
+            for (int i = 0; i < 4; ++i) mapping.pad[input_map::kA + i] = input_map::kPadA + buttons[i];
+            input_map::set_current(mapping, false); expect_current();
+            for (uint32_t vtable : {0x100EE5F8u, 0x100EE378u}) {
+                st32(guide + 4, vtable);
+                for (int face = 0; face < 4; ++face) {
+                    st8(guide + 0xDD, 1u << face);
+                    for (uint32_t descriptor : {0x1049ECB0u, 0x1049EBD4u, 0x1049EC00u}) {
+                        st32(state + 8, descriptor);
+                        calculate_guide();
+                        same_point(position(face_panes[face]), original[0]);
+                    }
+                    for (uint32_t i = 0; i < nodes.size(); ++i)
+                        for (uint32_t j = 0; j < 8; ++j)
+                            assert(ld32(nodes[i] + 0x1C + 4*j) == authored_positions[i][j]);
+                    // Hidden, full, and face-plus-shoulder guides restore the regular spread.
+                    for (uint8_t mask : {0, 0x1F, 0x3F, 0x11, 0x21}) {
+                        st8(guide + 0xDD, mask);
+                        calculate_guide();
+                        for (int i = 0; i < 4; ++i)
+                            same_point(position(face_panes[i]), original[expected_spots[i]]);
+                    }
+                }
+            }
+            // Unrelated layouts cannot inherit the previous guide's single-button anchor.
+            st32(guide + 4, 0); st8(guide + 0xDD, 1);
+            calculate_guide();
+            for (int i = 0; i < 4; ++i) same_point(position(face_panes[i]), original[expected_spots[i]]);
+        } while (std::next_permutation(buttons.begin(), buttons.end()));
+    }
     st32(0x101F8344, 0);
 
     // Different viewport origin/scale, and animated container scale/rotation: compare the
