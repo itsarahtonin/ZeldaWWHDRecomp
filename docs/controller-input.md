@@ -5,6 +5,8 @@ choices. Controls selects whether your inputs act as a Wii U GamePad or Pro
 Controller. Select that controller in the game's Controller Selection screen too.
 The face-button preset changes A/B/X/Y; it does not change D-pad or stick directions.
 
+The Controls labels retain the Wii U button names and describe their main actions in parentheses, such as **A (Action / Confirm)** and **B (Sword / Back)**. **X (Item 1)**, **Y (Item 2)** and **R (Item 3)** identify the three assignable item slots. These descriptions follow the game actions, regardless of which physical buttons you bind to them. Mods and app shortcuts can give otherwise unused inputs additional functions.
+
 **Stick dead zone** defaults to **15%** for both controller sticks. This filters
 small resting-stick drift, which can otherwise keep the Picto Box zooming and its
 picture blurred. Older controls files with the former 0% default automatically

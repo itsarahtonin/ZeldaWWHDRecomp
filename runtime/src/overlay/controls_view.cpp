@@ -88,8 +88,8 @@ struct Group {
 };
 
 // sizes of the callout columns (points at scale 1), as controls_ui.mm
-const float kColW = 254, kRowH = 23, kMargin = 14, kHeaderH = 22;
-const float kChipX[3] = {50, 110, 170}, kChipW[3] = {56, 56, 78};
+const float kColW = 370, kRowH = 23, kMargin = 14, kHeaderH = 22;
+const float kChipX[3] = {166, 226, 286}, kChipW[3] = {56, 56, 78};
 
 struct Geo {
     float k = 1, s = 1;            // k: callout scale; s: controller width in points
@@ -137,8 +137,8 @@ void pro_body(std::vector<ImVec2>& out, const std::function<ImVec2(float, float)
 Geo layout(bool pro, FaceLayout fl, ImVec2 org, float w, float h) {
     Geo g;
     g.org = org;
-    // the callouts need about 1060 x 520 points; smaller views shrink them, larger ones grow a little
-    g.k = std::clamp(std::min(w / 1060.0f, h / 520.0f), 0.55f, 1.3f);
+    // the callouts need about 1292 x 520 points; smaller views shrink them, larger ones grow a little
+    g.k = std::clamp(std::min(w / 1292.0f, h / 520.0f), 0.55f, 1.3f);
     const float k = g.k;
     ControllerDef d = controller_def(pro);
     g.colLx = org.x + kMargin * k;
@@ -259,22 +259,24 @@ Geo layout(bool pro, FaceLayout fl, ImVec2 org, float w, float h) {
         gr.right = right;
         g.groups.push_back(gr);
     };
-    group("ZL", {kZL}, {"ZL"}, tabAnchor(kZL), false);
-    group("ZR", {kZR}, {"ZR"}, tabAnchor(kZR), true);
-    group("L", {kL}, {"L"}, tabAnchor(kL), false);
-    group("R", {kR}, {"R"}, tabAnchor(kR), true);
+    group("ZL", {kZL}, {action_label(kZL)}, tabAnchor(kZL), false);
+    group("ZR", {kZR}, {action_label(kZR)}, tabAnchor(kZR), true);
+    group("L", {kL}, {action_label(kL)}, tabAnchor(kL), false);
+    group("R", {kR}, {action_label(kR)}, tabAnchor(kR), true);
     const std::vector<std::string> dirs = {"\xE2\x86\x91", "\xE2\x86\x93", "\xE2\x86\x90", "\xE2\x86\x92"};  // ↑↓←→
     std::vector<std::string> stickRows = dirs;
-    stickRows.push_back("Click");
-    group("Left stick (move)", {kLUp, kLDown, kLLeft, kLRight, kStickLClick}, stickRows, PU(d.lstick), false);
-    group("Right stick (camera)", {kRUp, kRDown, kRLeft, kRRight, kStickRClick}, stickRows, PU(d.rstick), true);
-    group("D-pad", {kDUp, kDDown, kDLeft, kDRight}, dirs, PU(d.dpad), false);
+    stickRows.push_back("Click (Unused by Game)");
+    group("Left stick (Move)", {kLUp, kLDown, kLLeft, kLRight, kStickLClick}, stickRows, PU(d.lstick), false);
+    stickRows.back() = "Click (First-Person View)";
+    group("Right stick (Camera)", {kRUp, kRDown, kRLeft, kRRight, kStickRClick}, stickRows, PU(d.rstick), true);
+    group("D-pad", {kDUp, kDDown, kDLeft, kDRight},
+          {action_label(kDUp), action_label(kDDown), action_label(kDLeft), action_label(kDRight)}, PU(d.dpad), false);
     for (auto& p : g.parts)
         if (p.kind == kPartRound) {
             bool right = p.action == kPlus || p.action == kA || p.action == kB || p.action == kX || p.action == kY ||
                          (p.action == kMinus && !pro) || (p.action == kHome && pro);
             std::string t = p.action == kHome ? "Home" : p.text;
-            group(t.c_str(), {p.action}, {t}, p.c, right);
+            group(t.c_str(), {p.action}, {action_label(p.action)}, p.c, right);
         }
     // stack each column in anchor order, as close to the anchors as fits (controls_ui.mm)
     for (int side = 0; side < 2; side++) {

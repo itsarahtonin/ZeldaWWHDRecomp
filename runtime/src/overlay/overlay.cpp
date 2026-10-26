@@ -1960,7 +1960,7 @@ void controls_list(input_map::Mapping& m, float h) {
             ImGui::AlignTextToFramePadding();
             const bool conflict = input_map::has_conflict(m, a);
             if (conflict) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.62f, 0.20f, 1.0f));
-            ImGui::TextUnformatted(input_map::action_label(a));
+            ImGui::TextWrapped("%s", input_map::action_label(a));
             if (conflict) ImGui::PopStyleColor();
             for (int col = 0; col < 3; col++) {
                 ImGui::TableNextColumn();

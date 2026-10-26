@@ -24,17 +24,21 @@ namespace input_map {
 namespace {
 struct ActionInfo { const char* id; const char* label; uint32_t bit; };
 const ActionInfo kActions[kActionCount] = {
-    {"A", "A", input::kA}, {"B", "B", input::kB}, {"X", "X", input::kX}, {"Y", "Y", input::kY},
-    {"L", "L", input::kL}, {"R", "R", input::kR}, {"ZL", "ZL", input::kZL}, {"ZR", "ZR", input::kZR},
-    {"Plus", "+ (Start)", input::kPlus}, {"Minus", "− (Select)", input::kMinus}, {"Home", "Home", input::kHome},
-    {"DpadUp", "D-pad ↑", input::kUp}, {"DpadDown", "D-pad ↓", input::kDown},
-    {"DpadLeft", "D-pad ←", input::kLeft}, {"DpadRight", "D-pad →", input::kRight},
-    {"LeftStickClick", "Left stick click", input::kStickL}, {"RightStickClick", "Right stick click", input::kStickR},
-    {"LeftStickUp", "Left stick ↑ (move)", 0}, {"LeftStickDown", "Left stick ↓ (move)", 0},
-    {"LeftStickLeft", "Left stick ← (move)", 0}, {"LeftStickRight", "Left stick → (move)", 0},
-    {"RightStickUp", "Right stick ↑ (camera)", 0}, {"RightStickDown", "Right stick ↓ (camera)", 0},
-    {"RightStickLeft", "Right stick ← (camera)", 0}, {"RightStickRight", "Right stick → (camera)", 0},
-    {"Screenshot", "Screenshot (app)", 0},
+    {"A", "A (Action / Confirm)", input::kA}, {"B", "B (Sword / Back)", input::kB},
+    {"X", "X (Item 1)", input::kX}, {"Y", "Y (Item 2)", input::kY},
+    {"L", "L (Items / Map)", input::kL}, {"R", "R (Item 3)", input::kR},
+    {"ZL", "ZL (Target / Camera)", input::kZL}, {"ZR", "ZR (Shield / Crouch)", input::kZR},
+    {"Plus", "+ (Start: Pause / Items)", input::kPlus}, {"Minus", "− (Select: TV / GamePad)", input::kMinus},
+    {"Home", "Home (Unused by Game)", input::kHome},
+    {"DpadUp", "D-pad ↑ (Wind Waker)", input::kUp}, {"DpadDown", "D-pad ↓ (Menu Navigation)", input::kDown},
+    {"DpadLeft", "D-pad ← (Cannon)", input::kLeft}, {"DpadRight", "D-pad → (Salvage Crane)", input::kRight},
+    {"LeftStickClick", "Left stick click (Unused by Game)", input::kStickL},
+    {"RightStickClick", "Right stick click (First-Person View)", input::kStickR},
+    {"LeftStickUp", "Left stick ↑ (Move)", 0}, {"LeftStickDown", "Left stick ↓ (Move)", 0},
+    {"LeftStickLeft", "Left stick ← (Move)", 0}, {"LeftStickRight", "Left stick → (Move)", 0},
+    {"RightStickUp", "Right stick ↑ (Camera)", 0}, {"RightStickDown", "Right stick ↓ (Camera)", 0},
+    {"RightStickLeft", "Right stick ← (Camera)", 0}, {"RightStickRight", "Right stick → (Camera)", 0},
+    {"Screenshot", "Screenshot (App)", 0},
 };
 
 struct PadInfo { const char* id; const char* label; };
