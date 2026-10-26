@@ -21,6 +21,7 @@ extern "C" {
 void f_0286E9F0_orig(Cpu* c);  // CharWriter::Print(writer, character)
 void f_028F7C7C_orig(Cpu* c);  // build vertices from a TextBox's cached glyph list
 void f_02874D54_orig(Cpu* c);  // lyt::Picture::DrawSelf
+void f_026F8CD0_orig(Cpu* c);  // hdParts_c::calcLayout
 void imp_gx2_GX2InitTextureRegs(Cpu* c);
 }
 
@@ -282,19 +283,22 @@ Point button_centre(uint32_t group, uint32_t picture) {
     return p;
 }
 
-bool item_menu() {
-    // SCENE-ingame_ui: ToMenu, Menu and MenuSubWindow. Use the state, not fading panes.
-    auto object = [](uint32_t p, uint32_t size) {
-        return (p & 3) == 0 && p >= mem::kMem2Start && p <= mem::kMem2End - size;
-    };
-    const uint32_t scene = ld32(GD(0x101F8344));
-    if (!object(scene, 0x1C)) return false;
-    const uint32_t current = ld32(scene + 0x18);
-    const uint32_t descriptor = object(current, 12) ? ld32(current + 8) : ld32(scene + 0x14);
-    return descriptor == GD(0x1049EC84) || descriptor == GD(0x1049ECB0) || descriptor == GD(0x1049ECDC);
-}
+thread_local bool menu_pair_layout = false;
 
 }  // namespace
+
+void button_glyphs::calculate_parts(Cpu* c, PpcFunc calculate) {
+    const bool previous = menu_pair_layout;
+    const uint32_t parts = c->r[3];
+    // ButtonGuide retains its displayed buttons through Out; scene state changes earlier.
+    menu_pair_layout = ld32(parts + 4) == GD(0x100EE5F8) && (ld8(parts + 0xDD) & 0x1F) == 3;
+    calculate(c);
+    menu_pair_layout = previous;
+}
+
+extern "C" void hook_026F8CD0(Cpu* c) {
+    button_glyphs::calculate_parts(c, f_026F8CD0_orig);
+}
 
 void button_glyphs::calculate_pane(Cpu* c, PpcFunc calculate) {
     const uint32_t pane = c->r[3];
@@ -319,7 +323,7 @@ void button_glyphs::calculate_pane(Cpu* c, PpcFunc calculate) {
     if (marking()) c->r[5] = 1;
     const auto look = style();
     const int spot = look.spots[face];
-    const bool menu_pair = face < 2 && look.face != FaceStyle::kOriginal && item_menu();
+    const bool menu_pair = face < 2 && look.face != FaceStyle::kOriginal && menu_pair_layout;
     if (spot == face && !menu_pair) return calculate(c);
     const Point from = button_centre(groups[face], pictures[face]);
     Point to = button_centre(groups[spot], pictures[spot]);

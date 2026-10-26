@@ -49,6 +49,7 @@ extern "C" void f_0282D9C0_orig(Cpu*) {}
 extern "C" void f_02874038_orig(Cpu*) {}
 extern "C" void f_02877100_orig(Cpu*) {}
 extern "C" void f_028F8250_orig(Cpu*) {}
+extern "C" void f_026F8CD0_orig(Cpu*) {}
 
 namespace {
 constexpr uint32_t base = 0x15000000, writer = base, list = base + 0x100, picture = base + 0x1000, text_box = base + 0x2000;
@@ -236,7 +237,13 @@ void positions_test() {
 
     // Every OK/Back pair, in either order, stays in the menu's original two-row area.
     const uint32_t scene = base + 0x6000, state = base + 0x6300;
+    const uint32_t guide = base + 0x6400;
     st32(0x101F8344, scene); st32(scene + 0x18, state);
+    st32(guide + 4, 0x100EE5F8); st8(guide + 0xDD, 3);
+    auto calculate_guide = [&] {
+        Cpu c{}; c.r[3] = guide;
+        button_glyphs::calculate_parts(&c, [](Cpu*) { calculate(false); });
+    };
     const Point right = original[0], bottom = original[1], top = original[2], left = original[3];
     const float right_shift = right.x - bottom.x;
     struct Pair { int a, b; Point first, second; };
@@ -258,17 +265,32 @@ void positions_test() {
         input_map::set_current(mapping, false); expect_current();
         for (uint32_t descriptor : {0x1049EC84u, 0x1049ECB0u, 0x1049ECDCu}) {
             st32(state + 8, descriptor);
-            calculate(false);
+            calculate_guide();
             same_point(position(face_panes[0]), reverse ? pair.second : pair.first);
             same_point(position(face_panes[1]), reverse ? pair.first : pair.second);
             for (int i = 2; i < 4; i++) same_point(position(face_panes[i]), original[expected_spots[i]]);
             for (uint32_t i = 0; i < nodes.size(); i++)
                 for (uint32_t j = 0; j < 8; j++) assert(ld32(nodes[i] + 0x1C + 4*j) == authored_positions[i][j]);
         }
-        // Leaving the menu restores the full diamond, even with cached matrices.
-        st32(state + 8, 0x1049EC00);
+        // The displayed guide retains the pair after the scene returns to gameplay.
+        for (uint32_t descriptor : {0x1049EBD4u, 0x1049EC2Cu, 0x1049EC00u, 0x1049EC58u}) {
+            st32(state + 8, descriptor);
+            for (int frame = 0; frame < 60; ++frame) {
+                calculate_guide();
+                same_point(position(face_panes[0]), reverse ? pair.second : pair.first);
+                same_point(position(face_panes[1]), reverse ? pair.first : pair.second);
+            }
+        }
+        // A different layout in the same frame must not inherit the compact placement.
         calculate(false);
         for (int i = 0; i < 4; i++) same_point(position(face_panes[i]), original[expected_spots[i]]);
+        for (uint32_t vtable : {0x100EE5F8u, 0x100EE378u}) {
+            st32(guide + 4, vtable);
+            st8(guide + 0xDD, vtable == 0x100EE5F8 ? 0x1F : 3);
+            calculate_guide();
+            for (int i = 0; i < 4; i++) same_point(position(face_panes[i]), original[expected_spots[i]]);
+        }
+        st32(guide + 4, 0x100EE5F8); st8(guide + 0xDD, 3);
     }
     st32(0x101F8344, 0);
 
