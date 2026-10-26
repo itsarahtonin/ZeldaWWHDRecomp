@@ -460,7 +460,7 @@ extern "C" void hook_02877100(Cpu* c) {
         };
         if (!ld32(pane+kPaneParent)) trace(trace,pane,0);
     }
-    if (original()) { f_02877100_orig(c); return; }
+    if (original()) { button_glyphs::draw_pane(c, f_02877100_orig); return; }
     uint32_t parent = ld32(pane + kPaneParent);
     if (!parent) {
         gx2::emit(gx2::OP_LAYOUT_ROOT, {pane});
@@ -482,7 +482,7 @@ extern "C" void hook_02877100(Cpu* c) {
             if (panes::parked_hud(gx, gy)) return;
         }
     }
-    f_02877100_orig(c);
+    button_glyphs::draw_pane(c, f_02877100_orig);
 }
 
 // the projection matrix uploaded during `fn` is tagged: the render thread narrows it (rows x and y
