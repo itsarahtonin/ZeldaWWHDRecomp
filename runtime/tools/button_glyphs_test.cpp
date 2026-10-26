@@ -243,7 +243,7 @@ void positions_test() {
     const Pair pairs[] = {
         {0, 1, bottom, right},
         {0, 2, {right.x, bottom.y}, {left.x + right_shift, left.y}},
-        {0, 3, {right.x, bottom.y}, {top.x + right_shift, right.y}},
+        {0, 3, {right.x, bottom.y}, {top.x + right_shift, right.y + (top.y - right.y) / 3.0f}},
         {1, 2, {right.x, bottom.y}, {left.x, bottom.y}},
         {1, 3, {right.x, bottom.y}, {top.x, right.y}},
         {2, 3, {left.x + right_shift, bottom.y}, {top.x + right_shift, right.y}},

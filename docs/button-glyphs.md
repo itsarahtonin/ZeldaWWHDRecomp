@@ -19,7 +19,7 @@ the left.
 
 Face-action words use the mapped button's Xbox or PlayStation prompt colour across all layouts, independently of **Coloured face buttons**. **Coloured face button text** switches these words to white when off, retaining outlines and fades. With text colours enabled, Original prompts preserve the game's text colours. Custom bindings must use four distinct host face buttons; duplicate bindings or non-face inputs fall back to the complete original icon set because they cannot describe a four-button controller picture.
 
-The item menu's OK/Back pair keeps the mapped buttons' relative directions while fitting the original menu area: unused vertical rows are removed, and a pair without the rightmost button shifts one position right. The top/bottom pair closes its empty middle row. Gameplay retains the full diamond spacing.
+The item menu's OK/Back pair keeps the mapped buttons' relative directions while fitting the original menu area: unused vertical rows are removed, and a pair without the rightmost button shifts one position right. The top/bottom pair retains one-third of its empty middle row to give the labels more clearance. Gameplay retains the full diamond spacing.
 
 Automatic prompts follow Xbox and PlayStation pads. Nintendo and unknown pads keep the original
 look with By position or custom bindings. By label retains its existing Xbox fallback for those

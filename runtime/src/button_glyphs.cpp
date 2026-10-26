@@ -330,7 +330,8 @@ void button_glyphs::calculate_pane(Cpu* c, PpcFunc calculate) {
         // Fit OK/Back into the original menu area: right-align, then remove empty rows.
         if (first != 0 && second != 0) to.x += right.x - bottom.x;
         if (first != 1 && second != 1) to.y = spot == 2 ? right.y : bottom.y;
-        else if ((first == 2 || second == 2) && spot == 2) to.y = right.y;
+        // The top/bottom pair keeps one-third of the empty row for label clearance.
+        else if ((first == 2 || second == 2) && spot == 2) to.y = right.y + (to.y - right.y) / 3.0f;
     }
     const float dx = to.x - from.x, dy = to.y - from.y;
     if (!std::isfinite(dx) || !std::isfinite(dy)) return calculate(c);
