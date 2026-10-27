@@ -406,23 +406,19 @@ void positions_test() {
 }
 
 // Draw order of the CommandGuide cluster (button_glyphs::draw_pane): a stand-in for Pane::Draw
-// walks the tree in child order, drawing text panes through the production text wrapper.
+// draws the pane, then each child through Pane::Draw again, which in the game is the hooked entry
+// (aspect.cpp), so every child passes draw_pane too.
 std::vector<std::string> drawn_panes;
-void record_text(Cpu* c) { drawn_panes.push_back((const char*)mem::ptr(c->r[3] + 0x80)); }
-void walk(uint32_t pane) {
-    const std::string name = (const char*)mem::ptr(pane + 0x80);
-    if (name.rfind("T_", 0) == 0) {
-        Cpu text{};
-        text.r[3] = pane;
-        text.r[4] = 0x1234;  // the DrawInfo, passed through unchanged
-        button_glyphs::draw_text_box(&text, record_text);
-    } else {
-        drawn_panes.push_back(name);
+void draw_tree(Cpu* c) {
+    assert(c->r[4] == 0x1234);  // the DrawInfo, passed through unchanged (also to the held-back words)
+    drawn_panes.push_back((const char*)mem::ptr(c->r[3] + 0x80));
+    const uint32_t sentinel = c->r[3] + 0x14;
+    for (uint32_t node = ld32(sentinel); node != sentinel; node = ld32(node)) {
+        Cpu child = *c;
+        child.r[3] = node;
+        button_glyphs::draw_pane(&child, draw_tree);
     }
-    const uint32_t sentinel = pane + 0x14;
-    for (uint32_t node = ld32(sentinel); node != sentinel; node = ld32(node)) walk(node);
 }
-void draw_tree(Cpu* c) { walk(c->r[3]); }
 long at(const char* name) { return std::find(drawn_panes.begin(), drawn_panes.end(), name) - drawn_panes.begin(); }
 
 void draw_order_test() {

@@ -363,8 +363,8 @@ void button_glyphs::calculate_pane(Cpu* c, PpcFunc calculate) {
 }
 
 namespace {
-// The CommandGuide cluster being drawn with its action words held back (draw_pane), and those words
-// with the draw function they came through, to draw once the whole cluster is down.
+// The CommandGuide cluster being drawn with its action words held back (draw_pane), and those words'
+// panes with the Pane::Draw they came through, to draw once the whole cluster is down.
 thread_local uint32_t deferring_cluster = 0;
 thread_local std::vector<std::pair<uint32_t, PpcFunc>> deferred_words;
 
@@ -380,14 +380,21 @@ bool inside(uint32_t pane, uint32_t ancestor) {
 }
 }  // namespace
 
-// The game draws the cluster's groups in a fixed order (A, B, X, Y), each with its action word. The
+// Pane::Draw draws a pane, then its children through Pane::Draw again, so the cluster's groups come
+// in the tree's child order (Y's group first, then R, B, A, X), each with its action word inside. The
 // authored layout keeps every word clear of the other buttons, but moved groups can reach into a
-// neighbour, which then covered the word when drawn later. With a restyled look, the words of a
-// complete cluster are drawn after the rest of it, with the same DrawInfo, so they stay on top.
+// neighbour, which then covered the word when it came later. With a restyled look, the words of a
+// complete cluster are held back and drawn after the rest of it, with the same DrawInfo.
 void button_glyphs::draw_pane(Cpu* c, PpcFunc draw) {
     const uint32_t pane = c->r[3];
-    if (deferring_cluster || !marking() || style().face == FaceStyle::kOriginal || pane_name(pane) != "N_All_00")
+    if (deferring_cluster) {
+        if (command_word(pane) && inside(pane, deferring_cluster)) {
+            deferred_words.emplace_back(pane, draw);
+            return;
+        }
         return draw(c);
+    }
+    if (!marking() || style().face == FaceStyle::kOriginal || pane_name(pane) != "N_All_00") return draw(c);
     for (const char* group : {"W_SetSeatA_00", "P_B_00", "N_X_00", "N_Y_00"})
         if (!child_named(pane, group)) return draw(c);
     const Cpu entry = *c;
@@ -397,10 +404,10 @@ void button_glyphs::draw_pane(Cpu* c, PpcFunc draw) {
     deferring_cluster = 0;
     const auto words = std::move(deferred_words);
     deferred_words.clear();
-    for (const auto& [box, text_draw] : words) {
-        Cpu word = entry;
-        word.r[3] = box;
-        draw_text_box(&word, text_draw);
+    for (const auto& [word, pane_draw] : words) {
+        Cpu w = entry;
+        w.r[3] = word;
+        pane_draw(&w);
     }
 }
 
@@ -464,10 +471,6 @@ void button_glyphs::prepare_text_box(uint32_t text_box, Cpu* cpu) {
 
 void button_glyphs::draw_text_box(Cpu* c, PpcFunc draw) {
     if (!marking()) return draw(c);  // no pane recognition or writes in a never-restyled session
-    if (deferring_cluster && command_word(c->r[3]) && inside(c->r[3], deferring_cluster)) {
-        deferred_words.emplace_back(c->r[3], draw);  // drawn after the cluster (draw_pane)
-        return;
-    }
     const int previous = hud_shoulder;
     const uint32_t previous_box = hud_box;
     const int previous_face = hud_face;
